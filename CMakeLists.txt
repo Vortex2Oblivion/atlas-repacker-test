@@ -4,10 +4,21 @@ project(atlasrepackertest VERSION 0.1.0 LANGUAGES C CXX)
 add_executable(atlasrepackertest 
     src/Main.cpp 
     src/packers/Packer.cpp 
-    src/packers/MaxRectsBin.cpp)
+    src/packers/MaxRectsBin.cpp
+        src/Exporter.cpp
+        src/Exporter.hpp
+        src/Frame.hpp)
 
 add_subdirectory(external/raylib)
 target_link_libraries(${PROJECT_NAME} raylib)
 
+include_directories(external/raygui/src)
+
 add_subdirectory(external/pugixml)
 target_link_libraries(${PROJECT_NAME} pugixml)
+
+add_subdirectory(external/json)
+target_link_libraries(${PROJECT_NAME} nlohmann_json)
+
+add_subdirectory(external/nativefiledialog-extended)
+target_link_libraries(${PROJECT_NAME} nativefiledialog-extended)

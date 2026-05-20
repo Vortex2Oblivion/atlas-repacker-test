@@ -1,23 +1,20 @@
 #include "MaxRectsBin.hpp"
 
 #include <climits>
-#include <stdlib.h>
+#include <cstdlib>
 #include <algorithm>
 
 namespace packers {
-    MaxRectsBin::MaxRectsBin(float width, float height) : Packer(width, height) {
-
-    }
+    // based on https://github.com/juj/RectangleBinPack/blob/master/MaxRectsBinPack.cpp
+    MaxRectsBin::MaxRectsBin(const uint16_t width, const uint16_t height) : Packer(width, height) {}
 
     MaxRectsBin::~MaxRectsBin() = default;
 
-    Rectangle MaxRectsBin::insert(float width, float height){
-        Rectangle node;
+    Rectangle MaxRectsBin::insert(const uint16_t width, const uint16_t height){
+        uint16_t score1 = UINT16_MAX;
+        uint16_t score2 = UINT16_MAX;
 
-        int score1 = INT_MAX;
-        int score2 = INT_MAX;
-
-        node = bestNodeShortSideFit(width, height, score1, score2);
+        const Rectangle node = bestNodeShortSideFit(width, height, score1, score2);
 
         if(node.height == 0){
             return node;
@@ -115,18 +112,18 @@ namespace packers {
     }
 
 
-    Rectangle MaxRectsBin::bestNodeShortSideFit(int width, int height, int &bestShortSideFit, int &bestLongSideFit){
+    Rectangle MaxRectsBin::bestNodeShortSideFit(const uint16_t width, const uint16_t height, uint16_t &bestShortSideFit, uint16_t &bestLongSideFit) const {
         Rectangle bestNode = {};
 
-        bestShortSideFit = INT_MAX;
-        bestLongSideFit = INT_MAX;
+        bestShortSideFit = UINT16_MAX;
+        bestLongSideFit = UINT16_MAX;
 
         for(auto rectangle : freeRectangles){
             if(rectangle.width >= width && rectangle.height >= height){
-                int leftoverH = abs(rectangle.width - width);
-                int leftoverV = abs(rectangle.height - height);
-                int shortSideFit = std::min(leftoverH, leftoverV);
-			    int longSideFit = std::max(leftoverH, leftoverV);
+                uint16_t leftoverH = abs(static_cast<uint16_t>(rectangle.width) - width);
+                uint16_t leftoverV = abs(static_cast<uint16_t>(rectangle.height) - height);
+                const uint16_t shortSideFit = std::min(leftoverH, leftoverV);
+			    const uint16_t longSideFit = std::max(leftoverH, leftoverV);
 
                 if (shortSideFit < bestShortSideFit || (shortSideFit == bestShortSideFit && longSideFit < bestLongSideFit)){
                     bestNode.x = rectangle.x;
@@ -144,10 +141,10 @@ namespace packers {
 
     void MaxRectsBin::pruneFreeList(){
         // Test all newly introduced free rectangles against old free rectangles.
-        for(size_t i = 0; i < freeRectangles.size(); ++i)
+        for(auto freeRectangle : freeRectangles)
             for(size_t j = 0; j < newFreeRectangles.size();)
             {
-                if (isContainedIn(newFreeRectangles[j], freeRectangles[i]))
+                if (isContainedIn(newFreeRectangles[j], freeRectangle))
                 {
                     newFreeRectangles[j] = newFreeRectangles.back();
                     newFreeRectangles.pop_back();
