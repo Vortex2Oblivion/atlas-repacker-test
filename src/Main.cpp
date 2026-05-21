@@ -1,40 +1,28 @@
-#include <iostream>
-#include <thread>
-
+#include "external/glad.h"
+#include "nfd.hpp"
+#include "pugixml.hpp"
+#include "raygui.h"
 #include "raylib.h"
 #include "raymath.h"
-#define RAYGUI_IMPLEMENTATION
-#include "raygui.h"
 
-#include "external/glad.h"
-
-#include "pugixml.hpp"
-
-#include  "nfd.hpp"
-
-#include "packers/MaxRectsBin.hpp"
-#include "Exporter.hpp"
+#include "IconButton.hpp"
 
 #include "Windows.hpp"
 
 int main() {
+    NFD_Init();
     InitWindow(1280, 720, "raylib example - basic window");
     setDarkMode();
     
     SetTargetFPS(GetMonitorRefreshRate(GetCurrentMonitor()));
 
-
+    Texture preview = {};
     pugi::xml_document doc;
-
-    if (const pugi::xml_parse_result result = doc.load_file("spritesheet.xml"); !result) {
-        TraceLog(LOG_ERROR, ("Error loading file: " + std::string(result.description())).c_str());
-        return 1;
-    }
 
     GLint maxTextureSize = 0;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
 
-    uint16_t width = 8192;
+    /*uint16_t width = 8192;
     uint16_t height = 8192;
 
     uint16_t croppedWidth = 0;
@@ -89,9 +77,11 @@ int main() {
         exporter.exportToFile("output", imageData);
         UnloadImage(imageData);
     });
-    t.detach();
+    t.detach();*/
 
     auto cam = Camera2D{.offset = Vector2Zero(), .target = Vector2Zero(), .rotation = 0.0, .zoom = 1.0};
+
+    auto loadSpritesheet = IconButton(10, 10, 48, 48, "Load Spritesheet", ICON_FILE_OPEN, BLACK);
 
     while (!WindowShouldClose()) {
         BeginDrawing();
@@ -105,8 +95,32 @@ int main() {
         DrawTexture(preview, 0, 0, WHITE);
         EndMode2D();
 
-        GuiButton(Rectangle{.x = 0, .y = 0, .width = 48, .height = 48}, "");
-        GuiDrawIcon(ICON_FILE_OPEN, 0, 0, 3, BLACK);
+        loadSpritesheet.draw();
+
+        if (loadSpritesheet.pressed) {
+            nfdu8char_t *outPath;
+            constexpr nfdu8filteritem_t filters[] = { { "PNG or XML file", "png,xml" } };
+            nfdopendialogu8args_t args = {nullptr};
+            args.filterList = filters;
+            args.filterCount = std::size(filters);
+            if (const nfdresult_t result = NFD_OpenDialogU8_With(&outPath, &args); result == NFD_OKAY)
+            {
+                if (std::string pathAsString = outPath; pathAsString.ends_with(".png")) {
+                    UnloadTexture(preview);
+                    preview = LoadTexture(outPath);
+                }
+                else if (pathAsString.ends_with(".xml")) {
+                    if (const pugi::xml_parse_result xmlParseResult = doc.load_file(outPath); !xmlParseResult) {
+                        TraceLog(LOG_ERROR, ("Error loading file: " + std::string(xmlParseResult.description())).c_str());
+                    }
+                }
+                NFD_FreePathU8(outPath);
+            }
+            else
+            {
+                TraceLog(LOG_ERROR, NFD_GetError());
+            }
+        }
 
         DrawFPS(0, 0);
 
@@ -114,6 +128,8 @@ int main() {
     }
 
     CloseWindow();
+    NFD_Quit();
+
 
     return 0;
 }

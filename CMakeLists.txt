@@ -11,6 +11,8 @@ src/Exporter.cpp
 src/Exporter.hpp
 src/Frame.hpp
 src/Windows.cpp
+        src/IconButton.cpp
+        src/IconButton.hpp
 )
 
 if(WIN32)
