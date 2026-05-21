@@ -3,6 +3,8 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/external/json" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/external/nativefiledialog-extended" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/external/nativefiledialog-extended/3ps/wayland-protocols" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/external/pugixml" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/external/raygui" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/external/raylib" vcs="Git" />

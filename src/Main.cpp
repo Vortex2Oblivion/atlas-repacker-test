@@ -4,17 +4,23 @@
 #include "raylib.h"
 #include "raymath.h"
 #define RAYGUI_IMPLEMENTATION
-#include "Exporter.hpp"
 #include "raygui.h"
 
 #include "external/glad.h"
+
 #include "pugixml.hpp"
 
-#include "packers/MaxRectsBin.hpp"
+#include  "nfd.hpp"
 
+#include "packers/MaxRectsBin.hpp"
+#include "Exporter.hpp"
+
+#include "Windows.hpp"
 
 int main() {
     InitWindow(1280, 720, "raylib example - basic window");
+    setDarkMode();
+    
     SetTargetFPS(GetMonitorRefreshRate(GetCurrentMonitor()));
 
 
@@ -101,6 +107,8 @@ int main() {
 
         GuiButton(Rectangle{.x = 0, .y = 0, .width = 48, .height = 48}, "");
         GuiDrawIcon(ICON_FILE_OPEN, 0, 0, 3, BLACK);
+
+        DrawFPS(0, 0);
 
         EndDrawing();
     }
