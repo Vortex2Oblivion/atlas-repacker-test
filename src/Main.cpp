@@ -12,8 +12,10 @@
 #include "raygui.h"
 
 #include "Button.hpp"
+#include "Frame.hpp"
 
 #include "Windows.hpp"
+#include "packers/MaxRectsBin.hpp"
 
 int main() {
     NFD_Init();
@@ -84,6 +86,8 @@ int main() {
     t.detach();
 #endif
 
+    Image spritesheetImage{};
+
     auto screenCenter = Vector2{.x = static_cast<float>(GetRenderWidth()) / 2, .y = static_cast<float>(GetRenderHeight()) / 2};
 
     auto camPreview = Camera2D{
@@ -93,11 +97,20 @@ int main() {
         .zoom = 1.0
     };
 
+    constexpr auto padding = 5;
+    constexpr auto popupWindowWidth = 650.0f;
+    // ReSharper disable once CppTooWideScope
+    constexpr auto popupWindowHeight = 480.0f;
+
     auto loadFiles = Button(10, 10, 48, 48, "", "Load Files", BLACK);
     loadFiles.icon = ICON_FILE_OPEN;
 
-    auto loadSpritesheet = Button(10, 10, 150, 48, "Load Spritesheet", "", BLACK);
-    auto loadXML = Button(10, 10, 150, 48, "Load XML", "", BLACK);
+    constexpr auto buttonWidth = popupWindowWidth / 3 - padding * 3;
+    constexpr auto buttonHeight = 48.0f;
+
+    auto loadSpritesheet = Button(10, 10, buttonWidth, buttonHeight, "Load Spritesheet", "", BLACK);
+    auto loadXML = Button(10, 10, buttonWidth, buttonHeight, "Load XML", "", BLACK);
+    auto repack = Button(10, 10, buttonWidth, buttonHeight, "Repack", "Repack the spritesheet.", BLACK);
 
     bool inSheetSelect = false;
 
@@ -105,6 +118,7 @@ int main() {
 
     int lastCursor = MOUSE_CURSOR_DEFAULT;
 
+    std::vector<Frame> frames = {};
     std::vector<Rectangle> rectsToDraw = {};
 
     while (!WindowShouldClose()) {
@@ -142,18 +156,16 @@ int main() {
         }
 
         if (inSheetSelect) {
-            constexpr auto padding = 5;
-            constexpr auto width = 650.0f;
-            constexpr auto height = 480.0f;
-            int x = (GetRenderWidth() - static_cast<int>(width)) / 2;
-            int y = (GetRenderHeight() - static_cast<int>(height)) / 2;
+            int x = (GetRenderWidth() - static_cast<int>(popupWindowWidth)) / 2;
+            int y = (GetRenderHeight() - static_cast<int>(popupWindowHeight)) / 2;
             const auto position = Rectangle{
                 .x = static_cast<float>(x),
                 .y = static_cast<float>(y),
-                .width = width,
-                .height = height
+                .width = popupWindowWidth,
+                .height = popupWindowHeight
             };
             inSheetSelect = !GuiWindowBox(position, "Select files");
+
 
             if (loadSpritesheet.pressed) {
                 nfdu8char_t *outPath;
@@ -164,9 +176,10 @@ int main() {
                 if (const nfdresult_t result = NFD_OpenDialogU8_With(&outPath, &args); result == NFD_OKAY)
                 {
                     loadSpritesheet.tooltip = outPath;
+                    UnloadImage(spritesheetImage);
                     UnloadTexture(selectedSpritesheetPreview);
+                    spritesheetImage = LoadImage(outPath);
                     selectedSpritesheetPreview = LoadTexture(outPath);
-                    SetTextureFilter(selectedSpritesheetPreview, TEXTURE_FILTER_BILINEAR);
                     NFD_FreePathU8(outPath);
                 }
                 else
@@ -195,6 +208,18 @@ int main() {
                             .width = frame.attribute("width").as_float(),
                             .height = frame.attribute("height").as_float()
                         });
+                        frames.push_back(Frame{
+                            .x = frame.attribute("x").as_float(),
+                            .y = frame.attribute("y").as_float(),
+                            .width = frame.attribute("width").as_float(),
+                            .height = frame.attribute("height").as_float(),
+                            .frameX = frame.attribute("frameX").as_float(),
+                            .frameY = frame.attribute("frameY").as_float(),
+                            .frameWidth = frame.attribute("frameWidth").as_float(),
+                            .frameHeight = frame.attribute("frameHeight").as_float(),
+                            .rotated = frame.attribute("rotated").as_bool(),
+                            .name = frame.attribute("name").as_string()
+                        });
                     }
                     NFD_FreePathU8(outPath);
                 }
@@ -204,19 +229,64 @@ int main() {
                 }
             }
 
+            if (repack.pressed) {
+                auto packerWidth = 8192;
+                auto packerHeight = 8192;
+
+                uint16_t croppedWidth = 0;
+                uint16_t croppedHeight = 0;
+
+                auto outputImage = GenImageColor(packerWidth, packerHeight, BLANK);
+
+                auto packer = packers::MaxRectsBin(packerWidth, packerHeight);
+
+                std::vector<Frame> packedFrames = {};
+
+                bool skip = false;
+
+                for (const auto& frame : frames) {
+                    skip = false;
+                    for (const auto& packedFrame : packedFrames) {
+                        if (frame.x == packedFrame.x && frame.y == packedFrame.y && frame.width == packedFrame.width && frame.height == packedFrame.height) {
+                            skip = true;
+                            break;
+                        }
+                    }
+                    if (skip) {
+                        continue;
+                    }
+                    // ReSharper disable once CppUseStructuredBinding
+                    auto packedRect = packer.insert(static_cast<uint16_t>(frame.width), static_cast<uint16_t>(frame.height));
+                    if (packedRect.width != 0 && packedRect.height != 0) {
+                        // ReSharper disable once CppUseStructuredBinding
+                        ImageDraw(&outputImage, spritesheetImage,
+                            Rectangle{.x = frame.x, .y = frame.y, .width = frame.width, .height = frame.height},
+                            {.x = packedRect.x, .y = packedRect.y, .width = packedRect.width, .height = packedRect.height},
+                            WHITE);
+                        packedFrames.push_back(frame);
+                        croppedWidth = std::max(croppedWidth, static_cast<uint16_t>(packedRect.x + packedRect.width));
+                        croppedHeight = std::max(croppedHeight, static_cast<uint16_t>(packedRect.y + packedRect.height));
+                    }
+                }
+                ImageCrop(&outputImage, Rectangle{.x = 0, .y = 0, .width = static_cast<float>(croppedWidth), .height = static_cast<float>(croppedHeight)});
+                ExportImage(outputImage, "output.png");
+                UnloadImage(outputImage);
+                //UnloadTexture(selectedSpritesheetPreview);
+            }
+
             if (IsTextureValid(selectedSpritesheetPreview)) {
                 if (GetMouseWheelMove() != 0) {
                     camPreview.target = screenCenter + GetMousePosition();
                 }
-                camPreview.zoom = Clamp(camPreview.zoom + GetMouseWheelMove() / 10.0f, 0.1, 3.0);
+                camPreview.zoom = Clamp(camPreview.zoom + GetMouseWheelMove() / 10.0f, 0.1f, 3.0f);
                 if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
                     camPreview.target -= GetMouseDelta() / camPreview.zoom;
                 }
                 auto clipRect = Rectangle{
                     .x = static_cast<float>(x) + padding,
                     .y = static_cast<float>(y) + RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT + loadSpritesheet.height + padding * 2,
-                    .width = width - padding * 2,
-                    .height = height - RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - loadSpritesheet.height - padding * 3
+                    .width = popupWindowWidth - padding * 2,
+                    .height = popupWindowHeight - RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - loadSpritesheet.height - padding * 3
                 };
                 if (CheckCollisionPointRec(GetMousePosition(), clipRect)) {
                     if (lastCursor != MOUSE_CURSOR_RESIZE_ALL) {
@@ -241,13 +311,17 @@ int main() {
                 EndScissorMode();
             }
 
-            loadSpritesheet.x = static_cast<int>(position.x) + padding;
+            loadSpritesheet.x = x + padding * 3 + (static_cast<int>(popupWindowWidth) - x * 2) / 3;
             loadSpritesheet.y = static_cast<int>(position.y) + RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT + padding;
             loadSpritesheet.draw();
 
             loadXML.x = loadSpritesheet.x + static_cast<int>(loadSpritesheet.width) + padding;
             loadXML.y = loadSpritesheet.y;
             loadXML.draw();
+
+            repack.x = loadXML.x + static_cast<int>(loadXML.width) + padding;
+            repack.y = loadXML.y;
+            repack.draw();
         }
 
         EndDrawing();

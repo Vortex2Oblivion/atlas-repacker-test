@@ -3,7 +3,6 @@
 #include <string>
 
 struct Frame {
-	bool rotated;
 	float x;
 	float y;
 	float width;
@@ -12,5 +11,6 @@ struct Frame {
 	float frameY;
 	float frameWidth;
 	float frameHeight;
+	bool rotated;
 	std::string name;
 };
