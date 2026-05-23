@@ -1,11 +1,17 @@
+#include <iostream>
+
 #include "external/glad.h"
 #include "nfd.hpp"
 #include "pugixml.hpp"
-#include "raygui.h"
 #include "raylib.h"
 #include "raymath.h"
 
-#include "IconButton.hpp"
+#define RAYGUI_IMPLEMENTATION
+#include <vector>
+
+#include "raygui.h"
+
+#include "Button.hpp"
 
 #include "Windows.hpp"
 
@@ -16,13 +22,11 @@ int main() {
     
     SetTargetFPS(GetMonitorRefreshRate(GetCurrentMonitor()));
 
-    Texture preview = {};
-    pugi::xml_document doc;
-
     GLint maxTextureSize = 0;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
 
-    /*uint16_t width = 8192;
+#ifdef false
+    uint16_t width = 8192;
     uint16_t height = 8192;
 
     uint16_t croppedWidth = 0;
@@ -77,27 +81,41 @@ int main() {
         exporter.exportToFile("output", imageData);
         UnloadImage(imageData);
     });
-    t.detach();*/
+    t.detach();
+#endif
 
-    auto cam = Camera2D{.offset = Vector2Zero(), .target = Vector2Zero(), .rotation = 0.0, .zoom = 1.0};
+    auto screenCenter = Vector2{.x = static_cast<float>(GetRenderWidth()) / 2, .y = static_cast<float>(GetRenderHeight()) / 2};
 
-    auto loadSpritesheet = IconButton(10, 10, 48, 48, "Load Spritesheet", ICON_FILE_OPEN, BLACK);
+    auto camPreview = Camera2D{
+        .offset = screenCenter,
+        .target = screenCenter,
+        .rotation = 0.0,
+        .zoom = 1.0
+    };
+
+    auto loadFiles = Button(10, 10, 48, 48, "", "Load Files", BLACK);
+    loadFiles.icon = ICON_FILE_OPEN;
+
+    auto loadSpritesheet = Button(10, 10, 150, 48, "Load Spritesheet", "", BLACK);
+    auto loadXML = Button(10, 10, 150, 48, "Load XML", "", BLACK);
+
+    bool inSheetSelect = false;
+
+    Texture selectedSpritesheetPreview{};
+
+    int lastCursor = MOUSE_CURSOR_DEFAULT;
+
+    std::vector<Rectangle> rectsToDraw = {};
 
     while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(WHITE);
 
-        cam.zoom += GetMouseWheelMove() / 10.0f;
-        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-            cam.target -= GetMouseDelta() / cam.zoom;
-        }
-        BeginMode2D(cam);
-        DrawTexture(preview, 0, 0, WHITE);
-        EndMode2D();
+        loadFiles.draw();
 
-        loadSpritesheet.draw();
-
-        if (loadSpritesheet.pressed) {
+        if (loadFiles.pressed) {
+            inSheetSelect = true;
+#ifdef false
             nfdu8char_t *outPath;
             constexpr nfdu8filteritem_t filters[] = { { "PNG or XML file", "png,xml" } };
             nfdopendialogu8args_t args = {nullptr};
@@ -120,16 +138,123 @@ int main() {
             {
                 TraceLog(LOG_ERROR, NFD_GetError());
             }
+#endif
         }
 
-        DrawFPS(0, 0);
+        if (inSheetSelect) {
+            constexpr auto padding = 5;
+            constexpr auto width = 650.0f;
+            constexpr auto height = 480.0f;
+            int x = (GetRenderWidth() - static_cast<int>(width)) / 2;
+            int y = (GetRenderHeight() - static_cast<int>(height)) / 2;
+            const auto position = Rectangle{
+                .x = static_cast<float>(x),
+                .y = static_cast<float>(y),
+                .width = width,
+                .height = height
+            };
+            inSheetSelect = !GuiWindowBox(position, "Select files");
+
+            if (loadSpritesheet.pressed) {
+                nfdu8char_t *outPath;
+                constexpr nfdu8filteritem_t filters[] = { { "Image file", "png" } };
+                nfdopendialogu8args_t args = {nullptr};
+                args.filterList = filters;
+                args.filterCount = std::size(filters);
+                if (const nfdresult_t result = NFD_OpenDialogU8_With(&outPath, &args); result == NFD_OKAY)
+                {
+                    loadSpritesheet.tooltip = outPath;
+                    UnloadTexture(selectedSpritesheetPreview);
+                    selectedSpritesheetPreview = LoadTexture(outPath);
+                    SetTextureFilter(selectedSpritesheetPreview, TEXTURE_FILTER_BILINEAR);
+                    NFD_FreePathU8(outPath);
+                }
+                else
+                {
+                    TraceLog(LOG_ERROR, NFD_GetError());
+                }
+            }
+
+            if (loadXML.pressed) {
+                nfdu8char_t *outPath;
+                constexpr nfdu8filteritem_t filters[] = { { "XML file", "xml" } };
+                nfdopendialogu8args_t args = {nullptr};
+                args.filterList = filters;
+                args.filterCount = std::size(filters);
+                if (const nfdresult_t result = NFD_OpenDialogU8_With(&outPath, &args); result == NFD_OKAY)
+                {
+                    loadXML.tooltip = outPath;
+                    rectsToDraw.clear();
+                    pugi::xml_document doc;
+                    doc.load_file(outPath);
+
+                    for (auto frame : doc.child("TextureAtlas").children("SubTexture")) {
+                        rectsToDraw.push_back(Rectangle{
+                            .x = frame.attribute("x").as_float() + static_cast<float>(x),
+                            .y = frame.attribute("y").as_float() + static_cast<float>(y),
+                            .width = frame.attribute("width").as_float(),
+                            .height = frame.attribute("height").as_float()
+                        });
+                    }
+                    NFD_FreePathU8(outPath);
+                }
+                else
+                {
+                    TraceLog(LOG_ERROR, NFD_GetError());
+                }
+            }
+
+            if (IsTextureValid(selectedSpritesheetPreview)) {
+                if (GetMouseWheelMove() != 0) {
+                    camPreview.target = screenCenter + GetMousePosition();
+                }
+                camPreview.zoom = Clamp(camPreview.zoom + GetMouseWheelMove() / 10.0f, 0.1, 3.0);
+                if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                    camPreview.target -= GetMouseDelta() / camPreview.zoom;
+                }
+                auto clipRect = Rectangle{
+                    .x = static_cast<float>(x) + padding,
+                    .y = static_cast<float>(y) + RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT + loadSpritesheet.height + padding * 2,
+                    .width = width - padding * 2,
+                    .height = height - RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - loadSpritesheet.height - padding * 3
+                };
+                if (CheckCollisionPointRec(GetMousePosition(), clipRect)) {
+                    if (lastCursor != MOUSE_CURSOR_RESIZE_ALL) {
+                        SetMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
+                        lastCursor = MOUSE_CURSOR_RESIZE_ALL;
+                    }
+                }
+                else {
+                    if (lastCursor != MOUSE_CURSOR_DEFAULT) {
+                        SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+                        lastCursor = MOUSE_CURSOR_DEFAULT;
+                    }
+                }
+                BeginScissorMode(static_cast<int>(clipRect.x), static_cast<int>(clipRect.y), static_cast<int>(clipRect.width), static_cast<int>(clipRect.height));
+                BeginMode2D(camPreview);
+                DrawTexture(selectedSpritesheetPreview, x, y, WHITE);
+                for (auto rect : rectsToDraw) {
+                    DrawRectanglePro(rect, Vector2Zero(), 0.0f, ColorAlpha(BLUE, 0.1));
+                }
+                EndMode2D();
+                DrawRectangleLinesEx(clipRect, static_cast<float>(GuiGetStyle(STATUSBAR, BORDER_WIDTH)), BLACK);
+                EndScissorMode();
+            }
+
+            loadSpritesheet.x = static_cast<int>(position.x) + padding;
+            loadSpritesheet.y = static_cast<int>(position.y) + RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT + padding;
+            loadSpritesheet.draw();
+
+            loadXML.x = loadSpritesheet.x + static_cast<int>(loadSpritesheet.width) + padding;
+            loadXML.y = loadSpritesheet.y;
+            loadXML.draw();
+        }
 
         EndDrawing();
     }
 
     CloseWindow();
     NFD_Quit();
-
 
     return 0;
 }

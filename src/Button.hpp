@@ -3,10 +3,10 @@
 #include "raylib.h"
 #include <string>
 
-class IconButton {
+class Button {
 	public:
-		IconButton(int x, int y, float width, float height, const std::string& tooltip, const int icon, const Color color);
-		~IconButton();
+		Button(int x, int y, float width, float height, const std::string &text, const std::string& tooltip, Color color);
+		~Button();
 		void draw();
 
 		int x;
@@ -15,7 +15,8 @@ class IconButton {
 		float height;
 		Color color = BLACK;
 		std::string tooltip;
-		int icon;
+		std::string text;
+		int icon = -1;
 
 		bool pressed = false;
 };

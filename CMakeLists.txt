@@ -4,15 +4,15 @@ set(CMAKE_CXX_STANDARD 20)
 
 
 add_executable(atlasrepackertest 
-src/Main.cpp 
-src/packers/Packer.cpp 
-src/packers/MaxRectsBin.cpp
-src/Exporter.cpp
-src/Exporter.hpp
-src/Frame.hpp
-src/Windows.cpp
-        src/IconButton.cpp
-        src/IconButton.hpp
+    src/Main.cpp
+    src/packers/Packer.cpp
+    src/packers/MaxRectsBin.cpp
+    src/Exporter.cpp
+    src/Exporter.hpp
+    src/Frame.hpp
+    src/Windows.cpp
+    src/Button.hpp
+    src/Button.cpp
 )
 
 if(WIN32)
