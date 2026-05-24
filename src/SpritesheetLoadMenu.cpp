@@ -115,26 +115,23 @@ void SpritesheetLoadMenu::draw() {
 
 		std::vector<Frame> packedFrames = {};
 
-		bool skip = false;
 
 		for (const auto &frame: frames) {
-			skip = false;
+			rbp::Rect _packedRect{};
+			Rectangle packedRect{};
 			for (const auto &packedFrame: packedFrames) {
 				if (frame.x == packedFrame.x && frame.y == packedFrame.y && frame.width == packedFrame.width && frame.
 				    height == packedFrame.height) {
-					skip = true;
-					break;
+					goto end;
 				}
 			}
-			if (skip) {
-				continue;
-			}
+
 			// ReSharper disable once CppUseStructuredBinding
-			const auto _packedRect = packer.Insert(static_cast<uint16_t>(frame.width),
+			_packedRect = packer.Insert(static_cast<uint16_t>(frame.width),
 			                                       static_cast<uint16_t>(frame.height),
 			                                       rbp::MaxRectsBinPack::RectBottomLeftRule);
 			// ReSharper disable once CppUseStructuredBinding
-			const auto packedRect = Rectangle{
+			packedRect = Rectangle{
 				.x = static_cast<float>(_packedRect.x),
 				.y = static_cast<float>(_packedRect.y),
 				.width = static_cast<float>(_packedRect.width),
@@ -153,6 +150,7 @@ void SpritesheetLoadMenu::draw() {
 				croppedWidth = std::max(croppedWidth, static_cast<uint16_t>(packedRect.x + packedRect.width));
 				croppedHeight = std::max(croppedHeight, static_cast<uint16_t>(packedRect.y + packedRect.height));
 			}
+			end:;
 		}
 		ImageCrop(&outputImage, Rectangle{
 			          .x = 0, .y = 0, .width = static_cast<float>(croppedWidth),

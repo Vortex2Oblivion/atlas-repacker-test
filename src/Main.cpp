@@ -24,7 +24,7 @@ int main() {
     GLint maxTextureSize = 0;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
 
-    auto screenCenter = Vector2{.x = static_cast<float>(GetRenderWidth()) / 2, .y = static_cast<float>(GetRenderHeight()) / 2};
+    auto [centerX, centerY] = Vector2{.x = static_cast<float>(GetRenderWidth()) / 2, .y = static_cast<float>(GetRenderHeight()) / 2};
 
     constexpr auto popupWindowWidth = 650.0f;
     constexpr auto popupWindowHeight = 480.0f;
@@ -32,7 +32,7 @@ int main() {
     auto loadFiles = Button(10, 10, 48, 48, "", "Load Files", BLACK);
     loadFiles.icon = ICON_FILE_OPEN;
 
-    auto spritesheetLoadMenu = SpritesheetLoadMenu(screenCenter.x, screenCenter.y, popupWindowWidth, popupWindowHeight);
+    auto spritesheetLoadMenu = SpritesheetLoadMenu(static_cast<int>(centerX), static_cast<int>(centerY), popupWindowWidth, popupWindowHeight);
 
     bool inSheetSelect = false;
 

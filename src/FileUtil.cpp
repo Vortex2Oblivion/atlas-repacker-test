@@ -16,9 +16,12 @@ FileResult FileUtil::openFileDialog(const std::vector<nfdu8filteritem_t>& filter
 	nfdu8char_t *outPath = nullptr;
 
 	const auto result = NFD_OpenDialogU8_With(&outPath, &args);
-	auto ret = FileResult{.outPath = outPath, .result = result};
+	FileResult ret;
 
-	NFD_FreePathU8(outPath);
+	if (result == NFD_OKAY) {
+		ret = FileResult{.outPath = outPath, .result = result};
+		NFD_FreePathU8(outPath);
+	}
 	free(filters);
 
 	return ret;
