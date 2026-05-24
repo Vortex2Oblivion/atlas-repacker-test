@@ -5,12 +5,12 @@
 
 class Button {
 	public:
-		Button(int x, int y, float width, float height, const std::string &text, const std::string& tooltip, Color color);
+		Button(float x, float y, float width, float height, const std::string &text, const std::string& tooltip, Color color);
 		~Button();
 		void draw();
 
-		int x;
-		int y;
+		float x;
+		float y;
 		float width;
 		float height;
 		Color color = BLACK;

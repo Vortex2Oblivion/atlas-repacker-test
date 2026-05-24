@@ -8,11 +8,11 @@
 
 class SpritesheetLoadMenu {
 	public:
-		SpritesheetLoadMenu(int x, int y, float width, float height);
+		SpritesheetLoadMenu(float x, float y, float width, float height);
 		~SpritesheetLoadMenu();
 
-		int x;
-		int y;
+		float x;
+		float y;
 		float width;
 		float height;
 
@@ -25,6 +25,7 @@ class SpritesheetLoadMenu {
 		static float padding;
 
 		void draw();
+		void screenCenter();
 	protected:
 		Image spritesheetImage{};
 		Texture selectedSpritesheetPreview{};

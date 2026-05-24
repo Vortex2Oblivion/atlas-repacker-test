@@ -14,12 +14,11 @@
 
 float SpritesheetLoadMenu::padding = 5;
 
-SpritesheetLoadMenu::SpritesheetLoadMenu(const int x, const int y, const float width, const float height) {
+SpritesheetLoadMenu::SpritesheetLoadMenu(const float x, const float y, const float width, const float height) {
 	this->x = x;
 	this->y = y;
 	this->width = width;
 	this->height = height;
-
 
 	auto buttonWidth = width / 3 - padding * 3;
 	constexpr auto buttonHeight = 48.0f;
@@ -41,12 +40,19 @@ SpritesheetLoadMenu::SpritesheetLoadMenu(const int x, const int y, const float w
 
 SpritesheetLoadMenu::~SpritesheetLoadMenu() = default;
 
+void SpritesheetLoadMenu::screenCenter() {
+	x = (static_cast<float>(GetRenderWidth()) - width) / 2.0f;
+	y = (static_cast<float>(GetRenderHeight()) - height) / 2.0f;
+	camPreview.offset = camPreview.target = Vector2{
+		.x = static_cast<float>(GetRenderWidth()) / 2.0f,
+		.y = static_cast<float>(GetRenderHeight()) / 2.0f
+	};
+}
+
 void SpritesheetLoadMenu::draw() {
-	int x = (GetRenderWidth() - static_cast<int>(this->width)) / 2;
-	int y = (GetRenderHeight() - static_cast<int>(this->height)) / 2;
 	const auto position = Rectangle{
-		.x = static_cast<float>(x),
-		.y = static_cast<float>(y),
+		.x = x,
+		.y = y,
 		.width = this->width,
 		.height = this->height
 	};
@@ -118,7 +124,7 @@ void SpritesheetLoadMenu::draw() {
 
 		for (const auto &frame: frames) {
 			rbp::Rect _packedRect{};
-			Rectangle packedRect{};
+			Rectangle packedRect;
 			for (const auto &packedFrame: packedFrames) {
 				if (frame.x == packedFrame.x && frame.y == packedFrame.y && frame.width == packedFrame.width && frame.
 				    height == packedFrame.height) {
@@ -126,11 +132,9 @@ void SpritesheetLoadMenu::draw() {
 				}
 			}
 
-			// ReSharper disable once CppUseStructuredBinding
 			_packedRect = packer.Insert(static_cast<uint16_t>(frame.width),
 			                                       static_cast<uint16_t>(frame.height),
 			                                       rbp::MaxRectsBinPack::RectBottomLeftRule);
-			// ReSharper disable once CppUseStructuredBinding
 			packedRect = Rectangle{
 				.x = static_cast<float>(_packedRect.x),
 				.y = static_cast<float>(_packedRect.y),
@@ -138,7 +142,6 @@ void SpritesheetLoadMenu::draw() {
 				.height = static_cast<float>(_packedRect.height)
 			};
 			if (packedRect.width != 0 && packedRect.height != 0) {
-				// ReSharper disable once CppUseStructuredBinding
 				ImageDraw(&outputImage, spritesheetImage,
 				          Rectangle{.x = frame.x, .y = frame.y, .width = frame.width, .height = frame.height},
 				          {
@@ -162,35 +165,21 @@ void SpritesheetLoadMenu::draw() {
 	}
 
 	if (IsTextureValid(selectedSpritesheetPreview)) {
-		if (GetMouseWheelMove() != 0) {
-			camPreview.target = Vector2{.x = static_cast<float>(x) / 2.0f, .y = static_cast<float>(y) / 2.0f} + GetMousePosition();
-		}
 		camPreview.zoom = Clamp(camPreview.zoom + GetMouseWheelMove() / 10.0f, 0.1f, 3.0f);
-		if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-			camPreview.target -= GetMouseDelta() / camPreview.zoom;
-		}
 		const auto clipRect = Rectangle{
-			.x = static_cast<float>(x) + padding,
-			.y = static_cast<float>(y) + RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT + loadSpritesheet->height + padding * 2,
+			.x = x + padding,
+			.y = y + RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT + loadSpritesheet->height + padding * 2,
 			.width = this->width - padding * 2,
 			.height = this->height - RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - loadSpritesheet->height - padding * 3
 		};
-		/*if (CheckCollisionPointRec(GetMousePosition(), clipRect)) {
-		    if (lastCursor != MOUSE_CURSOR_RESIZE_ALL) {
-		        SetMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
-		        lastCursor = MOUSE_CURSOR_RESIZE_ALL;
-		    }
+		if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), clipRect)) {
+			camPreview.target -= GetMouseDelta() / camPreview.zoom;
 		}
-		else {
-		    if (lastCursor != MOUSE_CURSOR_DEFAULT) {
-		        SetMouseCursor(MOUSE_CURSOR_DEFAULT);
-		        lastCursor = MOUSE_CURSOR_DEFAULT;
-		    }
-		}*/
+
 		BeginScissorMode(static_cast<int>(clipRect.x), static_cast<int>(clipRect.y), static_cast<int>(clipRect.width),
 		                 static_cast<int>(clipRect.height));
 		BeginMode2D(camPreview);
-		DrawTexture(selectedSpritesheetPreview, x, y, WHITE);
+		DrawTexture(selectedSpritesheetPreview, static_cast<int>(x), static_cast<int>(y), WHITE);
 		for (const auto rect: rectsToDraw) {
 			DrawRectanglePro(rect, Vector2Zero(), 0.0f, ColorAlpha(BLUE, 0.1));
 		}
@@ -199,15 +188,15 @@ void SpritesheetLoadMenu::draw() {
 		EndScissorMode();
 	}
 
-	loadSpritesheet->x = x + padding * 3 + (static_cast<int>(this->width) - x * 2) / 3;
-	loadSpritesheet->y = static_cast<int>(position.y) + RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT + padding;
+	loadSpritesheet->x = x + padding * 3.0f + (this->width - x * 2.0f) / 3.0f;
+	loadSpritesheet->y = position.y + RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT + padding;
 	loadSpritesheet->draw();
 
-	loadXML->x = loadSpritesheet->x + static_cast<int>(loadSpritesheet->width) + padding;
+	loadXML->x = loadSpritesheet->x + loadSpritesheet->width + padding;
 	loadXML->y = loadSpritesheet->y;
 	loadXML->draw();
 
-	repack->x = loadXML->x + static_cast<int>(loadXML->width) + padding;
+	repack->x = loadXML->x + loadXML->width + padding;
 	repack->y = loadXML->y;
 	repack->draw();
 }
